@@ -52,7 +52,7 @@ passport.use(
         async (accessToken, refreshToken, profile, done) => {
             try {
                 const userData = {
-                    userId: profile.id, // Use `userId` instead of `id`
+                    userId: profile.id, 
                     displayName: profile.displayName,
                     accessToken,
                     refreshToken,
@@ -61,9 +61,8 @@ passport.use(
 
                 console.log("User data:", userData);
 
-                // **Save user to DynamoDB correctly**
                 const params = {
-                    TableName: TABLE_NAME, // Use the exported table name
+                    TableName: TABLE_NAME, 
                     Item: userData,
                 };
 
