@@ -19,7 +19,7 @@ passport.use(
                     accessToken,
                     refreshToken,
                 };
-
+                console.log("User data:", userData);
                 return done(null, userData);
             } catch (error) {
                 return done(error, null);
