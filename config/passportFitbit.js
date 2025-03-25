@@ -38,7 +38,7 @@
 const passport = require("passport");
 const FitbitStrategy = require("passport-fitbit-oauth2").FitbitOAuth2Strategy;
 const { PutCommand } = require("@aws-sdk/lib-dynamodb");
-const dynamoDB = require("../config/db"); // Import DynamoDB client
+const { dynamoDB, TABLE_NAME } = require("../config/db"); // Correct import
 require("dotenv").config();
 
 passport.use(
@@ -52,27 +52,22 @@ passport.use(
         async (accessToken, refreshToken, profile, done) => {
             try {
                 const userData = {
-                    id: profile.id,
+                    userId: profile.id, // Use `userId` instead of `id`
                     displayName: profile.displayName,
                     accessToken,
                     refreshToken,
+                    createdAt: new Date().toISOString(),
                 };
 
                 console.log("User data:", userData);
 
-                // **Save user to DynamoDB**
-                await dynamoDB.send(
-                    new PutCommand({
-                        TableName: "FitAI_Users", // Change to your table name
-                        Item: {
-                            userId: userData.id,
-                            displayName: userData.displayName,
-                            accessToken: userData.accessToken,
-                            refreshToken: userData.refreshToken,
-                            createdAt: new Date().toISOString(),
-                        },
-                    })
-                );
+                // **Save user to DynamoDB correctly**
+                const params = {
+                    TableName: TABLE_NAME, // Use the exported table name
+                    Item: userData,
+                };
+
+                await dynamoDB.send(new PutCommand(params));
 
                 console.log("User saved to DynamoDB");
                 return done(null, userData);
