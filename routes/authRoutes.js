@@ -10,7 +10,7 @@ router.get(
     "/fitness/fitbit_redirect",
     passport.authenticate("fitbit", { failureRedirect: "/" }),
     (req, res) => {
-        res.redirect("/auth/profile");
+        res.json({ message: "Successfully authenticated with Fitbit" });
     }
 );
 
