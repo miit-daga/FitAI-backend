@@ -7,7 +7,7 @@ const router = express.Router();
 router.get("/fitbit", passport.authenticate("fitbit"));
 
 router.get(
-    "/fitbit/callback",
+    "/fitness/fitbit_redirect",
     passport.authenticate("fitbit", { failureRedirect: "/" }),
     (req, res) => {
         res.redirect("/auth/profile");
