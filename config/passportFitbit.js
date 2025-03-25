@@ -38,7 +38,7 @@
 const passport = require("passport");
 const FitbitStrategy = require("passport-fitbit-oauth2").FitbitOAuth2Strategy;
 const { PutCommand } = require("@aws-sdk/lib-dynamodb");
-const dynamoDB = require("../config/dynamoDB"); // Import DynamoDB client
+const dynamoDB = require("../config/db"); // Import DynamoDB client
 require("dotenv").config();
 
 passport.use(
