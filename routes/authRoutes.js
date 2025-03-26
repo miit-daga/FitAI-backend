@@ -1,6 +1,7 @@
 const express = require("express");
 const passport = require("passport");
 const axios = require("axios");
+const dayjs = require("dayjs");
 
 const router = express.Router();
 
@@ -15,8 +16,6 @@ router.get(
     }
 );
 
-const axios = require("axios");
-const dayjs = require("dayjs"); // Install with: npm install dayjs
 
 router.get("/profile", async (req, res) => {
     if (!req.isAuthenticated()) {
