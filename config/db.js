@@ -11,6 +11,9 @@ const client = new DynamoDBClient({
 });
 
 const dynamoDB = DynamoDBDocumentClient.from(client);
-const TABLE_NAME = "FitnessData"; 
+const TABLE_NAME = "FitnessData";
+const TABLE_NAME_USER = "Users";
 
-module.exports = { dynamoDB, TABLE_NAME, PutCommand, ScanCommand, GetCommand, UpdateCommand, DeleteCommand };
+module.exports = { dynamoDB, TABLE_NAME, TABLE_NAME_USER, PutCommand, ScanCommand, GetCommand, UpdateCommand, DeleteCommand };
+
+
