@@ -33,8 +33,11 @@ router.get("/profile", async (req, res) => {
             fitnessData: response.data.summary,
         });
     } catch (error) {
-        console.error("Error fetching fitness data:", error);
-        res.status(500).json({ error: "Failed to fetch fitness data" });
+        console.error("Error fetching fitness data:", error.response?.data || error.message);
+        res.status(500).json({
+            error: "Failed to fetch fitness data",
+            details: error.response?.data || error.message
+        });
     }
 });
 
