@@ -15,14 +15,19 @@ router.get(
     }
 );
 
+const axios = require("axios");
+const dayjs = require("dayjs"); // Install with: npm install dayjs
+
 router.get("/profile", async (req, res) => {
     if (!req.isAuthenticated()) {
         return res.status(401).json({ error: "Unauthorized" });
     }
 
+    const currentDate = dayjs().format("YYYY-MM-DD"); // Get today's date in YYYY-MM-DD format
+
     try {
         const response = await axios.get(
-            "https://api.fitbit.com/1/user/-/activities/date/today.json",
+            `https://api.fitbit.com/1/user/-/activities/date/${currentDate}.json`,
             {
                 headers: { Authorization: `Bearer ${req.user.accessToken}` },
             }
@@ -40,6 +45,7 @@ router.get("/profile", async (req, res) => {
         });
     }
 });
+
 
 router.get("/logout", (req, res) => {
     req.logout((err) => {
