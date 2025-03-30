@@ -57,7 +57,8 @@
 // module.exports = router;
 const express = require("express");
 const passport = require("passport");
-const { dynamoDB, TABLE_NAME, GetCommand } = require("../config/db");
+const { dynamoDB, TABLE_NAME } = require("../config/db");
+const { QueryCommand } = require("@aws-sdk/lib-dynamodb");
 
 const router = express.Router();
 
@@ -67,23 +68,39 @@ router.get(
     "/fitness/fitbit_redirect",
     passport.authenticate("fitbit", { failureRedirect: "/" }),
     (req, res) => {
-        // res.json({ message: "Successfully authenticated with Fitbit" });
         res.redirect("/auth/profile");
     }
 );
 
-// Function to Poll for Updated Fitness Data (If Needed)
+// Function to Fetch Latest Fitness Data
+const fetchLatestFitnessData = async (userId) => {
+    try {
+        const result = await dynamoDB.send(new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: "userId = :userId",
+            ExpressionAttributeValues: {
+                ":userId": userId,
+            },
+            ScanIndexForward: false, // Get latest entry first
+            Limit: 1, // Only fetch the latest record
+        }));
+
+        return result.Items.length > 0 ? result.Items[0] : null;
+    } catch (error) {
+        console.error("❌ Error fetching latest fitness data:", error);
+        throw error;
+    }
+};
+
+// Function to Poll for Updated Fitness Data
 const fetchUpdatedFitnessData = async (userId, maxRetries = 5, delayMs = 2000) => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            const result = await dynamoDB.send(new GetCommand({
-                TableName: TABLE_NAME,
-                Key: { userId },
-            }));
+            const latestData = await fetchLatestFitnessData(userId);
 
-            if (result.Item) {
+            if (latestData) {
                 console.log(`✅ Data found after ${attempt} attempt(s)`);
-                return result.Item;
+                return latestData;
             }
 
             console.log(`⏳ Attempt ${attempt}: Data not available yet...`);
@@ -106,23 +123,18 @@ router.get("/profile", async (req, res) => {
     const userId = req.user.userId;
 
     try {
-        // Check if fitness data already exists
-        const initialData = await dynamoDB.send(new GetCommand({
-            TableName: TABLE_NAME,
-            Key: { userId },
-        }));
+        // Fetch latest fitness data based on userId and latest date
+        const fitnessData = await fetchLatestFitnessData(userId);
 
-        if (initialData.Item) {
-            console.log("🔄 Existing data found. Checking for updates...");
-            const updatedData = await fetchUpdatedFitnessData(userId);
-            return res.json({ user: req.user, fitnessData: updatedData });
+        if (fitnessData) {
+            console.log("✅ Latest fitness data found!");
+            return res.json({ user: req.user, fitnessData });
         }
 
-        // If no data exists, wait for first-time Lambda insertion
-        console.log("🆕 No existing data found. Waiting for first-time data...");
-        const newData = await fetchUpdatedFitnessData(userId);
-
-        res.json({ user: req.user, fitnessData: newData });
+        // If no data found, poll for new updates
+        console.log("🆕 No existing data found. Polling for first-time data...");
+        const updatedData = await fetchUpdatedFitnessData(userId);
+        res.json({ user: req.user, fitnessData: updatedData });
     } catch (error) {
         res.status(500).json({
             error: "Failed to fetch fitness data",
@@ -132,3 +144,4 @@ router.get("/profile", async (req, res) => {
 });
 
 module.exports = router;
+
