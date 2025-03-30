@@ -87,7 +87,7 @@ const fetchLatestFitnessData = async (userId) => {
 
         return result.Items.length > 0 ? result.Items[0] : null;
     } catch (error) {
-        console.error("❌ Error fetching latest fitness data:", error);
+        console.error("Error fetching latest fitness data:", error);
         throw error;
     }
 };
@@ -99,19 +99,19 @@ const fetchUpdatedFitnessData = async (userId, maxRetries = 5, delayMs = 2000) =
             const latestData = await fetchLatestFitnessData(userId);
 
             if (latestData) {
-                console.log(`✅ Data found after ${attempt} attempt(s)`);
+                console.log(`Data found after ${attempt} attempt(s)`);
                 return latestData;
             }
 
             console.log(`⏳ Attempt ${attempt}: Data not available yet...`);
             await new Promise(resolve => setTimeout(resolve, delayMs)); // Wait before retrying
         } catch (error) {
-            console.error("❌ Error fetching fitness data:", error);
+            console.error("Error fetching fitness data:", error);
             throw error;
         }
     }
 
-    throw new Error("🚨 Fitness data update timed out.");
+    throw new Error("Fitness data update timed out.");
 };
 
 // Profile Route
@@ -127,12 +127,12 @@ router.get("/profile", async (req, res) => {
         const fitnessData = await fetchLatestFitnessData(userId);
 
         if (fitnessData) {
-            console.log("✅ Latest fitness data found!");
+            console.log("Latest fitness data found!");
             return res.json({ user: req.user, fitnessData });
         }
 
         // If no data found, poll for new updates
-        console.log("🆕 No existing data found. Polling for first-time data...");
+        console.log("No existing data found. Polling for first-time data...");
         const updatedData = await fetchUpdatedFitnessData(userId);
         res.json({ user: req.user, fitnessData: updatedData });
     } catch (error) {
