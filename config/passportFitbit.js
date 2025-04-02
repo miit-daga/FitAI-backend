@@ -102,7 +102,7 @@ passport.use(
             clientID: process.env.FITBIT_CLIENT_ID,
             clientSecret: process.env.FITBIT_CLIENT_SECRET,
             callbackURL: process.env.FITBIT_CALLBACK_URL,
-            scope: ["activity", "heartrate", "sleep", "nutrition", "profile"],
+            scope: ["activity", "heartrate", "sleep", "nutrition", "profile","oxygen_saturation"],
         },
         async (accessToken, refreshToken, profile, done) => {
             try {
@@ -111,7 +111,7 @@ passport.use(
                 // Check if the user already exists
                 const existingUser = await dynamoDB.send(
                     new GetCommand({
-                        TableName: TABLE_NAME_USER,
+                        TableName: 'users',
                         Key: { userId }
                     })
                 );
@@ -139,7 +139,7 @@ passport.use(
                 }
 
                 // ✅ Invoke Worker Lambda function asynchronously
-                invokeWorkerLambda(userId, accessToken);
+                await invokeWorkerLambda(userId, accessToken);
 
                 return done(null, { userId, accessToken, refreshToken });
             } catch (error) {

@@ -1,65 +1,18 @@
-// const express = require("express");
-// const passport = require("passport");
-// const axios = require("axios");
-// const dayjs = require("dayjs");
-// const { dynamoDB, TABLE_NAME, GetCommand } = require("../config/db");
-
-// const router = express.Router();
-
-// router.get("/fitbit", passport.authenticate("fitbit"));
-
-// router.get(
-//     "/fitness/fitbit_redirect",
-//     passport.authenticate("fitbit", { failureRedirect: "/" }),
-//     (req, res) => {
-//         // res.json({ message: "Successfully authenticated with Fitbit" });
-//         res.redirect("/auth/profile");
-//     }
-// );
-
-
-// router.get("/profile", async (req, res) => {
-//     if (!req.isAuthenticated()) {
-//         return res.status(401).json({ error: "Unauthorized" });
-//     }
-
-//     const currentDate = dayjs().format("YYYY-MM-DD"); // Get today's date in YYYY-MM-DD format
-
-//     try {
-//         const response = await axios.get(
-//             `https://api.fitbit.com/1/user/-/activities/date/${currentDate}.json`,
-//             {
-//                 headers: { Authorization: `Bearer ${req.user.accessToken}` },
-//             }
-//         );
-
-//         res.json({
-//             user: req.user,
-//             fitnessData: response.data.summary,
-//         });
-//     } catch (error) {
-//         console.error("Error fetching fitness data:", error.response?.data || error.message);
-//         res.status(500).json({
-//             error: "Failed to fetch fitness data",
-//             details: error.response?.data || error.message
-//         });
-//     }
-// });
-
-
-// router.get("/logout", (req, res) => {
-//     req.logout((err) => {
-//         if (err) return next(err);
-//         res.redirect("/");
-//     });
-// });
-
-// module.exports = router;
 const express = require("express");
 const passport = require("passport");
-const { dynamoDB, TABLE_NAME } = require("../config/db");
+const { GetCommand } = require("@aws-sdk/lib-dynamodb");
+const { dynamoDB, TABLE_NAME,TABLE_NAME_USER} = require("../config/db");
 const { QueryCommand } = require("@aws-sdk/lib-dynamodb");
 
+const { BedrockChat } = require("@langchain/community/chat_models/bedrock");
+const dotenv = require("dotenv");
+const { BufferMemory } = require("langchain/memory");
+const { ConversationChain } = require("langchain/chains");
+
+dotenv.config();
+const apiKey = process.env.BEDROCK_AWS_ACCESS_KEY_ID;
+const secretKey = process.env.BEDROCK_AWS_SECRET_ACCESS_KEY;
+const region = process.env.BEDROCK_AWS_REGION;
 const router = express.Router();
 
 router.get("/fitbit", passport.authenticate("fitbit"));
@@ -68,7 +21,7 @@ router.get(
     "/fitness/fitbit_redirect",
     passport.authenticate("fitbit", { failureRedirect: "/" }),
     (req, res) => {
-        res.redirect("/auth/profile");
+        res.send("Fitbit Authentication successful.");
     }
 );
 
@@ -114,27 +67,30 @@ const fetchUpdatedFitnessData = async (userId, maxRetries = 5, delayMs = 2000) =
     throw new Error("Fitness data update timed out.");
 };
 
-// Profile Route
-router.get("/profile", async (req, res) => {
-    if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const userId = req.user.userId;
+router.get("/profile/:userId", async (req, res) => {
+    const userId = req.params.userId;
 
     try {
-        // Fetch latest fitness data based on userId and latest date
+        const userResult = await dynamoDB.send(new GetCommand({
+            TableName: TABLE_NAME_USER,
+            Key: { userId }
+        }));
+
+        if (!userResult.Item) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const user = userResult.Item;
+
         const fitnessData = await fetchLatestFitnessData(userId);
 
         if (fitnessData) {
             console.log("Latest fitness data found!");
-            return res.json({ user: req.user, fitnessData });
+            return res.json({ user, fitnessData });
         }
-
-        // If no data found, poll for new updates
         console.log("No existing data found. Polling for first-time data...");
         const updatedData = await fetchUpdatedFitnessData(userId);
-        res.json({ user: req.user, fitnessData: updatedData });
+        res.json({ user, fitnessData: updatedData });
     } catch (error) {
         res.status(500).json({
             error: "Failed to fetch fitness data",
@@ -143,5 +99,41 @@ router.get("/profile", async (req, res) => {
     }
 });
 
+const llm = new BedrockChat({
+    model: "meta.llama3-8b-instruct-v1:0",
+    region: region,
+    credentials: {
+        accessKeyId: apiKey,
+        secretAccessKey: secretKey,
+    },
+});
+const memory = new BufferMemory();
+
+const chain = new ConversationChain({ llm: llm, memory: memory });
+router.post("/model", async (req, res) => {
+    const { userId, query } = req.body;
+    if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+    }
+    try {
+        const updatedData = await fetchUpdatedFitnessData(userId);
+        const { heart_rate, ...dataWithoutHeartRate } = updatedData;
+        const response = await chain.call({
+            input: {
+                query: query,
+                input_language: "English",
+                output_language: "English",
+                user_data: dataWithoutHeartRate,
+            }
+        });
+        console.log("Full response:", response);
+        res.json({ userId, response });
+    } catch (error) {
+        res.status(500).json({
+            error: "Failed to process the request",
+            details: error.message,
+        });
+    }
+});
 module.exports = router;
 
