@@ -1,0 +1,7 @@
+.idea
+.env
+node_modules
+createTable.js
+fitnessControllerBackup.js
+fitnessDataBackup.js
+models/backup
